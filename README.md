@@ -1,329 +1,209 @@
 # Proj_Dio_AnaliseDeSentimento
 Análise de sentimento de texto 
 
-📊 Análise de Sentimento em Chats de Clientes (Pipeline no Azure)
+🎙️ Análise de Sentimento a partir de Áudio com Azure AI Speech
 
-Este repositório descreve um pipeline de análise de sentimento em chats usando Azure, cobrindo ingestão → anonimização (PII) → enriquecimento com sentimento → agregação → monitoramento e visualização.
+Este projeto demonstra, de forma simples e educativa, como:
 
-🎯 Objetivos
+Converter áudio em texto usando Azure AI Speech (Speech to Text)
 
-Classificar sentimento (positivo/neutro/negativo e score) por mensagem e por conversa
+Analisar o sentimento do texto usando Azure AI Language (Sentiment Analysis)
 
-Detectar momentos críticos (picos de frustração)
+O objetivo é aprendizado, não produção em larga escala.
 
-Explicar resultados via temas/drivers (ex.: atraso, cobrança, cancelamento)
+🎯 Objetivo
 
-Disponibilizar dados prontos para Power BI e alertas operacionais
+Transformar um áudio curto (ex.: gravação de um cliente) em:
 
-🧱 Arquitetura (visão geral)
+texto transcrito
 
-Fontes de chat (Zendesk/Intercom/WhatsApp/chat in-app)
-→ Azure Data Factory (ingestão)
-→ ADLS Gen2 (Raw)
-→ Databricks ou Synapse Spark (PII masking + limpeza)
-→ Azure AI Language (Sentiment Analysis) (enriquecimento)
-→ ADLS Gen2 (Curated) / Synapse SQL / Fabric Lakehouse (serving)
-→ Power BI (dashboards) + Azure Monitor (alertas)
+classificação de sentimento (positive, neutral, negative)
 
-🗂️ Camadas de dados (Data Lake)
+scores de confiança
 
-Organize no ADLS Gen2 em camadas:
+🧱 Arquitetura (simples)
+Arquivo WAV
+   ↓
+Azure AI Speech (Speech to Text)
+   ↓
+Texto transcrito
+   ↓
+Azure AI Language (Sentiment Analysis)
+   ↓
+Sentimento + scores
 
-adls://<datalake>/chats/
-  ├── raw/        # dados brutos (com PII, acesso restrito)
-  ├── bronze/     # parseado + schema, ainda pode conter PII (restrito)
-  ├── silver/     # PII mascarada + texto normalizado
-  └── gold/       # agregados e KPIs por conversa/agente/canal
 
+Tudo acontece localmente via Python, chamando serviços do Azure.
 
-Regra de ouro: somente silver e gold devem ser consumidos amplamente.
+📦 Tecnologias usadas
 
+Azure AI Speech
 
-1) Pré-requisitos no Azure
+Conversão de fala → texto
 
-1.1 Recursos recomendados
+Azure AI Language
 
-Azure Data Lake Storage Gen2 (ADLS)
+Análise de sentimento
 
-Azure Data Factory (ADF) ou Synapse Pipelines
+Python 3.9+
 
-Azure Databricks ou Synapse Spark (processamento)
+SDKs oficiais da Microsoft
 
-Azure AI Language (Text Analytics / Sentiment Analysis)
+☁️ Recursos necessários no Azure
 
-Azure Key Vault (segredos e chaves)
+criar dois recursos no Azure Portal:
 
-Synapse SQL / Fabric Warehouse/Lakehouse (camada de serving)
+1️⃣ Azure AI Speech
 
-Power BI (visualização)
+Tipo: Speech
 
-Azure Monitor + Log Analytics (observabilidade)
+Usado para: transcrição de áudio
 
-1.2 Segurança
+SPEECH_KEY
 
-Secrets (API keys, connection strings) em Key Vault
+SPEECH_REGION
 
-Acesso ao Data Lake via Managed Identity
+2️⃣ Azure AI Language
 
-raw/ com ACLs mais restritivas (dados sensíveis)
+Tipo: Language (ou AI Services)
 
+Usado para: análise de sentimento
 
-2) Definição do schema do chat
+LANGUAGE_KEY
 
-2.1 Schema mínimo por mensagem
-{
-  "conversation_id": "conv_123",
-  "message_id": "msg_456",
-  "timestamp": "2026-01-07T14:32:05Z",
-  "speaker": "customer",
-  "channel": "whatsapp",
-  "text": "Estou muito insatisfeito, meu pedido ainda não chegou."
-}
+LANGUAGE_ENDPOINT
 
 
-Campos mínimos:
+🗂️ Estrutura do repositório
+.
+├── README.md
+├── sentiment_from_audio.py
+├── sample.wav
+└── requirements.txt
 
-conversation_id, message_id, timestamp, speaker, text
+🛠️ Instalação
+1) Criar ambiente virtual (opcional, recomendado)
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+venv\Scripts\activate     # Windows
 
-Campos úteis:
+2) Instalar dependências
+pip install azure-cognitiveservices-speech azure-ai-textanalytics
 
-agent_id, queue, country, language, customer_id_hash
+usando requirements.txt:
 
+azure-cognitiveservices-speech
+azure-ai-textanalytics
 
-3) Ingestão (Azure Data Factory → ADLS Raw)
+pip install -r requirements.txt
 
-3.1 Conectar fontes
+🔐 Configuração das variáveis de ambiente
 
-Crie Linked Services no ADF para:
+As chaves do Azure como variáveis de ambiente.
 
-APIs (HTTP)
+Linux / Mac
+export SPEECH_KEY="sua_chave_speech"
+export SPEECH_REGION="sua_regiao"
+export LANGUAGE_KEY="sua_chave_language"
+export LANGUAGE_ENDPOINT="https://seu-endpoint.cognitiveservices.azure.com/"
 
-bancos (SQL)
+Windows (PowerShell)
+setx SPEECH_KEY "sua_chave_speech"
+setx SPEECH_REGION "sua_regiao"
+setx LANGUAGE_KEY "sua_chave_language"
+setx LANGUAGE_ENDPOINT "https://seu-endpoint.cognitiveservices.azure.com/"
 
-arquivos (SFTP/Blob)
+▶️ Como executar
 
-filas (Event Hub, se streaming)
+Um arquivo WAV curto na raiz do projeto
 
+Exemplo: sample.wav
 
-3.2 Pipeline de ingestão
+Idioma recomendado: Português
 
-No ADF:
+Áudio limpo, sem muito ruído
 
-Copy Activity para trazer dados do chat
+Execute o script:
 
-Gravar em raw/ particionado por data:
+python sentiment_from_audio.py
 
-raw/year=YYYY/month=MM/day=DD/
+🧠 O que o script faz (passo a passo)
+1️⃣ Speech to Text
 
+Envia o áudio para o Azure AI Speech
 
-3.3 Validação inicial (Data Quality)
+Recebe a transcrição do áudio
 
-Verificar campos obrigatórios
+2️⃣ Sentiment Analysis
 
-Contar conversas/mensagens por dia
+Envia o texto transcrito para o Azure AI Language
 
-Rejeitar mensagens vazias (ou marcar como inválidas)
+Recebe:
 
-Saída: dataset bruto em raw/.
+sentimento (positive, neutral, negative)
 
+scores de confiança
 
-4) Bronze: parsing e padronização de schema (Databricks/Synapse Spark)
+🧪 Exemplo de saída
+TRANSCRIÇÃO:
+Estou muito insatisfeito, meu pedido ainda não chegou.
 
-Objetivo: transformar JSON/CSV variados em um formato único.
+SENTIMENTO:
+negative
 
-Passos:
+SCORES:
+positive=0.02, neutral=0.11, negative=0.87
 
-Ler de raw/
+📄 Código principal (sentiment_from_audio.py)
+import os
+import azure.cognitiveservices.speech as speechsdk
+from azure.ai.textanalytics import TextAnalyticsClient
+from azure.core.credentials import AzureKeyCredential
 
-Normalizar colunas (renomear e tipar)
+# ================= CONFIG =================
+SPEECH_KEY = os.environ["SPEECH_KEY"]
+SPEECH_REGION = os.environ["SPEECH_REGION"]
 
-Garantir:
+LANGUAGE_KEY = os.environ["LANGUAGE_KEY"]
+LANGUAGE_ENDPOINT = os.environ["LANGUAGE_ENDPOINT"]
 
-timestamp em UTC
+WAV_FILE = "sample.wav"
 
-speaker ∈ {customer, agent, bot}
+# ============ SPEECH TO TEXT ==============
+speech_config = speechsdk.SpeechConfig(
+    subscription=SPEECH_KEY,
+    region=SPEECH_REGION,
+    speech_recognition_language="pt-BR"
+)
 
-Gravar em bronze/ como Delta/Parquet
+audio_config = speechsdk.audio.AudioConfig(filename=WAV_FILE)
+recognizer = speechsdk.SpeechRecognizer(
+    speech_config=speech_config,
+    audio_config=audio_config
+)
 
+result = recognizer.recognize_once()
 
-5) Silver: mascaramento de PII + limpeza de texto
+if result.reason != speechsdk.ResultReason.RecognizedSpeech:
+    raise RuntimeError("Falha ao reconhecer o áudio")
 
-5.1 Mascaramento de PII (recomendado)
+transcript = result.text
+print("TRANSCRIÇÃO:")
+print(transcript)
 
-Você pode fazer de 2 formas:
+# ============ SENTIMENT ANALYSIS ==========
+client = TextAnalyticsClient(
+    endpoint=LANGUAGE_ENDPOINT,
+    credential=AzureKeyCredential(LANGUAGE_KEY)
+)
 
+response = client.analyze_sentiment(
+    documents=[transcript],
+    language="pt"
+)[0]
 
-Opção A — Regras/Regex (rápida):
+print("\nSENTIMENTO:")
+print(response.sentiment)
 
-e-mail → <EMAIL>
-
-telefone → <PHONE>
-
-documentos → <DOC>
-
-
-Opção B — Azure AI Language (PII Entity Recognition):
-
-Chama o endpoint de PII Recognition
-
-Substitui entidades detectadas por tokens
-
-Boa prática: combinar PII do Azure + regex para cobrir padrões locais.
-
-
-5.2 Normalização do texto
-
-Remover caracteres invisíveis
-
-Padronizar múltiplos espaços
-
-Preservar “!!!” “???”
-
-Mapear emojis (opcional)
-
-Saída: silver/ com text_masked e text_normalized.
-
-
-6) Enriquecimento: Sentimento (Azure AI Language)
-
-6.1 Como chamar o serviço
-
-Use o recurso Azure AI Language (Text Analytics) com:
-
-Sentiment Analysis (com ou sem opinion mining)
-
-Requisição por documento/mensagem:
-
-id: message_id
-
-text: texto normalizado (sem PII)
-
-language: se disponível (ex.: pt)
-
-
-6.2 Saída típica do Azure AI Language
-
-sentiment: positive|neutral|negative|mixed
-
-confidenceScores: {positive, neutral, negative}
-
-sentences: score por sentença (útil para trechos críticos)
-
-Dica: Use o score do cliente (speaker=customer) como sinal principal.
-
-
-6.3 Persistência do enriquecimento
-
-Gravar em silver/ ou curated/ colunas como:
-
-sentiment_label
-
-sentiment_positive_conf
-
-sentiment_neutral_conf
-
-sentiment_negative_conf
-
-sentiment_sentence_min (pior sentença)
-
-sentiment_score (derivado; exemplo abaixo)
-
-Conversão simples para score (-1..+1):
-
-score = positive_conf - negative_conf
-
-
-7) Agregação por conversa (Gold)
-
-Objetivo: criar KPIs por conversa (e depois por agente/fila/canal).
-
-
-7.1 Agregados recomendados (por conversa)
-
-avg_customer_score
-
-min_customer_score
-
-last_customer_score
-
-negative_burst_count (seq. de negativas)
-
-ended_negative (último score < limiar)
-
-Exemplo de “momento crítico”:
-
-min_customer_score < -0.6 → flag critical_moment=true
-
-
-7.2 Gravação
-
-Salvar gold/ como Delta/Parquet e/ou publicar em:
-
-Synapse SQL (views e tabelas)
-
-Fabric Warehouse/Lakehouse (serving para BI)
-
-
-8) Visualização (Power BI)
-Dashboards recomendados
-
-Tendência diária de % conversas negativas
-
-Top 10 filas/canais por negatividade
-
-Tempo até resolução vs sentimento final
-
-Heatmap por hora/dia
-
-“Momentos críticos” com drill-down (sentença mínima)
-
-
-9) Alertas operacionais (Azure Monitor)
-
-Exemplos de alertas:
-
-“% conversas negativas” > X por 30 min
-
-Pico de “ended_negative” por fila
-
-Taxa de falha na API do Azure AI Language
-
-Latência p95 acima do limite
-
-Integrações:
-
-Teams / Email / Webhook / ITSM
-
-
-10) Checklist de produção
-
- raw/ protegido (PII)
-
- silver/ sem PII e pronto para consumo
-
- Calls ao Azure AI Language com retry/backoff
-
- Split por conversation_id (se treinar modelo próprio)
-
- Observabilidade (logs, métricas, custos)
-
- Monitoramento de drift (novos termos/produtos)
-
- Plano de fallback (regras simples se o serviço falhar)
- 
-
-🔁 Fluxo resumido (passo a passo da análise)
-
-Ingerir chats via ADF → raw/
-
-Padronizar schema (Spark) → bronze/
-
-Mascarar PII + normalizar texto → silver/
-
-Calcular sentimento via Azure AI Language → silver/curated
-
-Agregação por conversa + KPIs → gold/
-
-Servir para BI (Synapse/Fabric) → Power BI
-
-Alertar e monitorar via Azure Monitor
+print("\nSCORES:")
+print(response.confidence_scores)
